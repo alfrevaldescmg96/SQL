@@ -59,3 +59,10 @@ SELECT COUNT(acctnum) AS total_acc,
  WHERE length(orderid) = 6 AND 
        orderid <> 'Order ID' AND 
        Quantity > 2
+#8. This query selects the product name and the sum of quantity sold for all sales made in locations containing 'Los Angeles' in the name. It then groups the results by the product name.
+SELECT Product,
+       SUM(Quantity) 
+  FROM FebSales
+ WHERE location LIKE '%Los Angeles%'
+ GROUP BY Product;
+
