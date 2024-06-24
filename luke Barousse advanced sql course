@@ -134,6 +134,33 @@ ORDER BY
     skill_total DESC
 LIMIT 5;
 
+-- This query utilizes a subquery to count the total number of job postings per company,
+-- and categorizes the job posting size as 'Small', 'Medium', or 'Large' based on the total.
+
+SELECT
+    cd.name,
+    CASE
+        WHEN sub.total < 10 THEN 'Small'
+        WHEN sub.total >= 10 AND sub.total <= 50 THEN 'Medium'
+        WHEN sub.total > 50 THEN 'Large'
+        ELSE 'Unknown'  -- Por si acaso hay algún caso inesperado
+    END AS job_posting_size
+FROM 
+    (
+        SELECT
+        jp.company_id,
+        COUNT(*) AS total
+    FROM
+        job_postings_fact jp
+    JOIN 
+        company_dim cd ON jp.company_id = cd.company_id
+    Group by
+    	jp.company_id
+    ORDER BY
+    	total DESC
+    ) AS sub
+JOIN 
+    company_dim cd ON sub.company_id = cd.company_id;  
 
 
 
