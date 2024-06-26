@@ -162,5 +162,80 @@ FROM
 JOIN 
     company_dim cd ON sub.company_id = cd.company_id;  
 
+-- This query selects companies with an average salary higher than the overall average salary.
+-- It uses a HAVING clause to filter results after grouping them by company.
 
+SELECT
+    jp.company_id,
+    cd.name AS company_name,
+    AVG(jp.salary_year_avg) AS average_salary
+FROM
+    job_postings_fact jp
+JOIN
+    company_dim cd ON jp.company_id = cd.company_id
+WHERE
+    jp.salary_year_avg IS NOT NULL
+GROUP BY
+    jp.company_id, cd.name
+HAVING
+    AVG(jp.salary_year_avg) > (
+        SELECT 
+            AVG(jp.salary_year_avg)
+        FROM
+            job_postings_fact jp
+        WHERE
+            jp.salary_year_avg IS NOT NULL
+    )
+ORDER BY
+    average_salary DESC;
+    
+-- This query selects companies with an average salary higher than the overall average salary.
+-- It uses a subquery in the JOIN to calculate the average salary per company, and an additional subquery in the WHERE clause to compare it with the overall average salary.
+
+SELECT 
+    company_dim.name
+FROM 
+    company_dim
+INNER JOIN (
+    -- Subquery to calculate average salary per company
+    SELECT 
+			company_id, 
+			AVG(salary_year_avg) AS avg_salary
+    FROM job_postings_fact
+    GROUP BY company_id
+    ) AS company_salaries ON company_dim.company_id = company_salaries.company_id
+-- Filter for companies with an average salary greater than the overall average
+WHERE company_salaries.avg_salary > (
+    -- Subquery to calculate the overall average salary
+    SELECT AVG(salary_year_avg)
+    FROM job_postings_fact
+)
+ORDER BY
+    company_salaries.avg_salary DESC;
+
+CTEs
+
+-- This query calculates the number of unique job titles per company and then selects the company names 
+-- along with their respective count of unique job titles.
+-- It uses a Common Table Expression (CTE) to count the distinct job titles for each company,
+-- and then joins this result with the company_dim table to get the company names and their unique job title counts.
+WITH title_diversity AS
+    (
+    SELECT
+        jp.company_id,
+        COUNT(DISTINCT jp.job_title) AS unique_titles  
+    FROM
+        job_postings_fact jp
+    GROUP BY
+        jp.company_id
+    )
+SELECT
+    cd.name,
+    td.unique_titles
+FROM    
+    company_dim cd
+INNER JOIN
+    title_diversity td ON cd.company_id = td.company_id
+ORDER BY
+    td.unique_titles DESC;
 
