@@ -239,3 +239,99 @@ INNER JOIN
 ORDER BY
     td.unique_titles DESC;
 
+ 
+-- Get the average annual salary per country, rounded to 2 decimal places
+WITH country_salaries AS (
+    SELECT
+        jp.job_country,
+        ROUND(AVG(jp.salary_year_avg), 2) AS country_salary_year
+    FROM
+        job_postings_fact jp
+    WHERE
+        jp.salary_year_avg IS NOT NULL
+    GROUP BY
+        jp.job_country
+),
+
+-- Get job details including job title, company name, and annual salary
+title_salary AS (
+    SELECT
+        jp.job_id,
+        jp.job_title,
+        cd.name AS company_name,
+        jp.salary_year_avg,
+        jp.job_posted_date,
+        jp.job_country
+    FROM
+        job_postings_fact jp
+    INNER JOIN
+        company_dim cd ON jp.company_id = cd.company_id
+    WHERE
+        jp.salary_year_avg IS NOT NULL
+)
+
+-- Select job ID, job title, company name, annual salary,
+-- categorize the salary as 'Above Average' or 'Below Average' compared to the country's average,
+-- and extract the month from the job posted date
+SELECT
+    ts.job_id,
+    ts.job_title,
+    ts.company_name,
+    ts.salary_year_avg AS salary_rate,
+    CASE
+        WHEN ts.salary_year_avg > cs.country_salary_year THEN 'Above Average'
+        ELSE 'Below Average'
+    END AS salary_category,
+    EXTRACT(MONTH FROM ts.job_posted_date) AS posting_month
+FROM
+    title_salary ts
+INNER JOIN
+    country_salaries cs ON ts.job_country = cs.job_country
+ORDER BY
+    posting_month DESC
+;
+
+-- This query aims to quantify the unique skills required per company and identify
+-- which companies offer the highest average salary for positions necessitating at least one skill.
+-- The final output ensures inclusion of companies without skill-related job postings by using LEFT JOINs.
+
+WITH
+    skill_count AS (
+        SELECT
+            jp.company_id,
+            COUNT(DISTINCT sj.skill_id) AS count_skill
+        FROM
+            company_dim cd
+            LEFT JOIN job_postings_fact jp ON jp.company_id = cd.company_id
+            LEFT JOIN skills_job_dim sj ON sj.job_id = jp.job_id
+        GROUP BY
+            jp.company_id
+    ),
+    max_salary AS (
+        SELECT
+            jp.company_id,
+            MAX(jp.salary_year_avg) AS highest_average_salary
+        FROM
+            job_postings_fact jp
+        WHERE
+            jp.job_id IN (
+                SELECT
+                    job_id
+                FROM
+                    skills_job_dim
+            )
+        GROUP BY
+            jp.company_id
+    )
+SELECT
+    cd.name,
+    sc.count_skill, -- handle companies without any skills required
+    ms.highest_average_salary
+FROM
+    company_dim cd
+    LEFT JOIN skill_count sc ON cd.company_id = sc.company_id
+    LEFT JOIN max_salary ms ON cd.company_id = ms.company_id
+ORDER BY
+    cd.name
+;
+
